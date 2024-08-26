@@ -27,7 +27,7 @@ class OrderService {
 
     private async connectDB(): Promise<void> {
         try {
-            await mongoose.connect('mongodb://localhost:27017/orders', {
+            await mongoose.connect('mongodb://127.0.0.1:27017/Ecommerce', {
                 // useNewUrlParser: true,
                 // useUnifiedTopology: true,
             });
@@ -41,6 +41,7 @@ class OrderService {
         try {
             const connection = await amqp.connect('amqp://localhost');
             this.channel = await connection.createChannel();
+            await this.channel.assertQueue('order_notifications');
             console.log('Connected to RabbitMQ');
         } catch (error) {
             console.error('Failed to connect to RabbitMQ', error);
@@ -48,10 +49,17 @@ class OrderService {
     }
 
     private async createOrder(req: Request, res: Response): Promise<void> {
-        const { userId, productId, quantity } = req.body;
+        const { userId, products, totalPrice } = req.body;
         try {
-            const order = new Order({ userId, productId, quantity });
+            const order = new Order({ userId, products, totalPrice });
             await order.save();
+            if (this.channel) {
+                this.channel.sendToQueue(
+                    'order_notifications',
+                    Buffer.from(JSON.stringify(order))
+                );
+                console.log('Order notification sent:', order);
+            }
             res.status(201).send(order);
         } catch (error) {
             res.status(500).send({ message: 'Error creating order', error });
@@ -101,12 +109,22 @@ class OrderService {
     }
 }
 
-const OrderSchema = new mongoose.Schema({
-    userId: { type: mongoose.Schema.Types.ObjectId, required: true },
-    productId: { type: mongoose.Schema.Types.ObjectId, required: true },
+// const OrderSchema = new mongoose.Schema({
+//     userId: { type: mongoose.Schema.Types.ObjectId, required: true },
+//     productId: { type: mongoose.Schema.Types.ObjectId, required: true },
+//     quantity: { type: Number, required: true },
+// });
+
+const ProductSchema = new mongoose.Schema({
+    productId: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'Product' },
     quantity: { type: Number, required: true },
 });
 
+const OrderSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'User' },
+    products: [ProductSchema],
+    totalPrice: { type: Number, required: true },
+});
 const Order = mongoose.model('Order', OrderSchema);
 
 const orderService = new OrderService();

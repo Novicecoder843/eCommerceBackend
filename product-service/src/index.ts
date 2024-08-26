@@ -28,7 +28,7 @@ class ProductService {
 
     private async connectDB(): Promise<void> {
         try {
-            await mongoose.connect('mongodb://localhost:27017/products', {
+            await mongoose.connect('mongodb://127.0.0.1:27017/Ecommerce', {
                 // useNewUrlParser: true,
                 // useUnifiedTopology: true,
             });
@@ -49,9 +49,9 @@ class ProductService {
     }
 
     private async createProduct(req: Request, res: any): Promise<void> {
-        const { name, price, stock } = req.body;
+        const { name, price, stock ,description} = req.body;
         try {
-            const product = new Product({ name, price, stock });
+            const product = new Product({ name, price, stock,description });
             await product.save();
             res.status(201).send(product);
         } catch (error) {
@@ -119,6 +119,7 @@ class ProductService {
 
 const ProductSchema = new mongoose.Schema({
     name: { type: String, required: true },
+    description:{type: String, required: true},
     price: { type: Number, required: true },
     stock: { type: Number, required: true },
 });
